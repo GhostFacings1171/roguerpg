@@ -612,7 +612,7 @@
                 
                 // Distribute 4 random bonus points
                 const statKeys = ['hp', 'mp', 'atk', 'mag'];
-                for (let i = 0; i < 4; i++) {
+                for (let i = 0; i < 6; i++) {
                     const randomStat = statKeys[Math.floor(Math.random() * statKeys.length)];
                     bonusStats[randomStat]++;
                     
@@ -659,7 +659,8 @@
                 document.getElementById('victory-modal').classList.add('hidden');
                 document.getElementById('combat-log').innerHTML = '';
                 document.getElementById('action-buttons').classList.remove('opacity-50', 'pointer-events-none');
-                new RPGGame();
+
+                game = new RPGGame(); // ← IMPORTANT: reassign global variable
             }
 
             log(message, classes = '') {
@@ -711,4 +712,5 @@
     </script>
 </body>
 </html>
+
 
