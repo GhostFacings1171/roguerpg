@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turn-Based RPG Arena</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+        }
+        
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        .damage-pop {
+            animation: floatUp 1s ease-out forwards;
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
+        }
+        
+        .pulse-glow {
+            animation: pulseGlow 2s infinite;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.8); }
+        }
+        
+        .boss-aura {
+            animation: bossPulse 3s infinite;
+        }
+        
+        @keyframes bossPulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.6); }
+            50% { box-shadow: 0 0 60px rgba(239, 68, 68, 1); }
+        }
+        
+        .heal-effect {
+            animation: healPulse 0.6s ease-out;
+        }
+        
+        @keyframes healPulse {
+            0% { filter: brightness(1) sepia(0) saturate(1); }
+            50% { filter: brightness(1.5) sepia(1) saturate(2) hue-rotate(90deg); }
+            100% { filter: brightness(1) sepia(0) saturate(1); }
+        }
+        
+        .stat-bar {
+            transition: width 0.3s ease-out;
+        }
+        
+        .enemy-float {
+            animation: enemyFloat 3s ease-in-out infinite;
+        }
+        
+        @keyframes enemyFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .attack-anim {
+            animation: attackLunge 0.3s ease-out;
+        }
+        
+        @keyframes attackLunge {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(30px); }
+            100% { transform: translateX(0); }
+        }
+        
+        .magic-anim {
+            animation: magicCast 0.5s ease-out;
+        }
+        
+        @keyframes magicCast {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.2); filter: brightness(2) drop-shadow(0 0 20px #6366f1); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-white overflow-x-hidden">
+    <!-- Game Container -->
+    <div class="container mx-auto px-4 py-6 max-w-4xl">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-black mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                RPG ARENA
+            </h1>
+            <div class="flex justify-center items-center gap-4 text-sm md:text-base text-indigo-200">
+                <span class="flex items-center gap-1">
+                    <i data-lucide="sword" class="w-4 h-4"></i>
+                    Round <span id="round-display" class="font-bold text-white">1</span>
+                </span>
+                <span class="text-indigo-400">|</span>
+                <span class="flex items-center gap-1">
+                    <i data-lucide="trophy" class="w-4 h-4"></i>
+                    Wins: <span id="wins-display" class="font-bold text-white">0</span>
+                </span>
+            </div>
+        </header>
+
+        <!-- Battle Arena -->
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+            
+            <!-- Player Card -->
+            <div class="bg-slate-800/80 backdrop-blur rounded-2xl p-6 border border-indigo-500/30 shadow-2xl">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center pulse-glow">
+                        <i data-lucide="user" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold">Hero</h2>
+                        <p class="text-indigo-300 text-sm">Level <span id="player-level">1</span> Warrior</p>
+                    </div>
+                </div>
+                
+                <!-- HP Bar -->
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-red-400 font-semibold flex items-center gap-1">
+                            <i data-lucide="heart" class="w-4 h-4"></i> HP
+                        </span>
+                        <span class="text-gray-300"><span id="player-hp">100</span> / <span id="player-max-hp">100</span></span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                        <div id="player-hp-bar" class="stat-bar bg-gradient-to-r from-red-600 to-red-400 h-full rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <!-- MP Bar -->
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-blue-400 font-semibold flex items-center gap-1">
+                            <i data-lucide="zap" class="w-4 h-4"></i> MP
+                        </span>
+                        <span class="text-gray-300"><span id="player-mp">50</span> / <span id="player-max-mp">50</span></span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                        <div id="player-mp-bar" class="stat-bar bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <!-- XP Bar -->
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-yellow-400 font-semibold flex items-center gap-1">
+                            <i data-lucide="star" class="w-4 h-4"></i> XP
+                        </span>
+                        <span class="text-gray-300"><span id="player-xp">0</span> / <span id="player-xp-next">2</span></span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                        <div id="player-xp-bar" class="stat-bar bg-gradient-to-r from-yellow-600 to-yellow-400 h-full rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enemy Card -->
+            <div class="bg-slate-800/80 backdrop-blur rounded-2xl p-6 border border-red-500/30 shadow-2xl relative overflow-hidden">
+                <div id="boss-badge" class="hidden absolute top-2 right-2 bg-red-600 text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+                    BOSS
+                </div>
+                <div class="flex items-center gap-3 mb-4">
+                    <div id="enemy-icon" class="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center enemy-float">
+                        <i data-lucide="ghost" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h2 id="enemy-name" class="text-xl font-bold">Slime</h2>
+                        <p id="enemy-type" class="text-red-300 text-sm">Normal Enemy</p>
+                    </div>
+                </div>
+                
+                <!-- Enemy HP Bar -->
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-red-400 font-semibold flex items-center gap-1">
+                            <i data-lucide="heart" class="w-4 h-4"></i> HP
+                        </span>
+                        <span class="text-gray-300"><span id="enemy-hp">50</span> / <span id="enemy-max-hp">50</span></span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                        <div id="enemy-hp-bar" class="stat-bar bg-gradient-to-r from-red-600 to-red-400 h-full rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <!-- Enemy MP Bar -->
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-purple-400 font-semibold flex items-center gap-1">
+                            <i data-lucide="flame" class="w-4 h-4"></i> MP
+                        </span>
+                        <span class="text-gray-300"><span id="enemy-mp">20</span> / <span id="enemy-max-mp">20</span></span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                        <div id="enemy-mp-bar" class="stat-bar bg-gradient-to-r from-purple-600 to-purple-400 h-full rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Damage Display Area -->
+        <div id="damage-display" class="h-16 flex justify-center items-center gap-8 mb-4 pointer-events-none"></div>
+
+        <!-- Combat Log -->
+        <div class="bg-slate-900/80 rounded-xl p-4 mb-6 h-32 overflow-y-auto border border-slate-700 shadow-inner" id="combat-log">
+            <div class="text-indigo-300 text-sm italic">Battle started! A wild enemy appears!</div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="action-buttons" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <button onclick="game.playerAction('attack')" class="bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center gap-1 group">
+                <i data-lucide="sword" class="w-6 h-6 group-hover:rotate-12 transition-transform"></i>
+                <span>Attack</span>
+                <span class="text-xs opacity-75">No cost</span>
+            </button>
+            
+            <button onclick="game.playerAction('magic')" class="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center gap-1 group">
+                <i data-lucide="sparkles" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                <span>Magic</span>
+                <span class="text-xs opacity-75">-15 MP</span>
+            </button>
+            
+            <button onclick="game.playerAction('heal')" class="bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center gap-1 group">
+                <i data-lucide="heart-plus" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                <span>Heal</span>
+                <span class="text-xs opacity-75">-20 MP</span>
+            </button>
+            
+            <button onclick="game.playerAction('defend')" class="bg-gradient-to-br from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center gap-1 group">
+                <i data-lucide="shield" class="w-6 h-6 group-hover:translate-x-1 transition-transform"></i>
+                <span>Defend</span>
+                <span class="text-xs opacity-75">-50% dmg</span>
+            </button>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <div class="bg-slate-800 rounded-2xl p-8 max-w-md w-full text-center border border-slate-600 shadow-2xl">
+                <div id="game-over-icon" class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl">
+                    💀
+                </div>
+                <h2 id="game-over-title" class="text-3xl font-bold mb-2">Game Over</h2>
+                <p id="game-over-message" class="text-gray-300 mb-6">You were defeated in battle...</p>
+                <div class="text-sm text-gray-400 mb-6">
+                    Rounds Survived: <span id="final-round" class="text-white font-bold">0</span> | 
+                    Enemies Defeated: <span id="final-score" class="text-white font-bold">0</span>
+                </div>
+                <button onclick="game.restart()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-xl transition-colors w-full">
+                    Play Again
+                </button>
+            </div>
+        </div>
+
+        <!-- Victory Modal -->
+        <div id="victory-modal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <div class="bg-gradient-to-br from-yellow-900/90 to-amber-900/90 rounded-2xl p-8 max-w-md w-full text-center border border-yellow-500/50 shadow-2xl">
+                <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-yellow-500 flex items-center justify-center text-4xl pulse-glow">
+                    👑
+                </div>
+                <h2 class="text-3xl font-bold mb-2 text-yellow-400">Victory!</h2>
+                <p class="text-yellow-100 mb-6">You defeated the Boss and completed the game!</p>
+                <div class="text-sm text-yellow-200/70 mb-6">
+                    Total Rounds: <span id="victory-round" class="text-white font-bold">10</span> | 
+                    Total Kills: <span id="victory-score" class="text-white font-bold">9</span>
+                </div>
+                <button onclick="game.restart()" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-8 rounded-xl transition-colors w-full">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const CONFIG = {
+            playerStartHP: 100,
+            playerStartMP: 50,
+            healAmount: 30,
+            healCost: 20,
+            magicCost: 15,
+            restorePercent: 0.15,
+            bossRound: 10
+        };
+
+        // Enemy Templates
+        const ENEMIES = {
+            normal: [
+                { name: 'Slime', icon: 'droplet', hp: 40, mp: 10, atk: 8, mag: 5, color: 'bg-green-600', physRes: 0, magRes: 0 },
+                { name: 'Goblin', icon: 'swords', hp: 60, mp: 15, atk: 12, mag: 8, color: 'bg-emerald-600', physRes: 0, magRes: 0 },
+                { name: 'Skeleton', icon: 'skull', hp: 50, mp: 20, atk: 15, mag: 10, color: 'bg-gray-600', physRes: 0.15, magRes: -0.20, desc: 'Resistant to physical, weak to magic' },
+                { name: 'Wolf', icon: 'dog', hp: 55, mp: 10, atk: 14, mag: 5, color: 'bg-amber-700', physRes: 0.10, magRes: 0, desc: 'Resistant to physical attacks' },
+                { name: 'Bat', icon: 'bird', hp: 35, mp: 15, atk: 10, mag: 12, color: 'bg-purple-800', physRes: 0, magRes: 0 },
+                { name: 'Ghost', icon: 'ghost', hp: 45, mp: 30, atk: 8, mag: 18, color: 'bg-indigo-400', physRes: 0.50, magRes: -0.30, desc: 'High physical resistance, weak to magic' },
+                { name: 'Golem', icon: 'box', hp: 80, mp: 10, atk: 18, mag: 5, color: 'bg-stone-600', physRes: 0.25, magRes: 0.10, desc: 'High physical resistance' },
+                { name: 'Witch', icon: 'sparkles', hp: 40, mp: 40, atk: 5, mag: 20, color: 'bg-fuchsia-600', physRes: -0.20, magRes: 0.30, desc: 'Resistant to magic, weak to physical' },
+                { name: 'Zombie', icon: 'user-x', hp: 70, mp: 5, atk: 12, mag: 0, color: 'bg-lime-800', physRes: 0.10, magRes: 0.20, desc: 'Resistant to magic' },
+                { name: 'Spider', icon: 'bug', hp: 45, mp: 20, atk: 13, mag: 8, color: 'bg-red-900', physRes: 0.15, magRes: 0, desc: 'Resistant to physical' },
+                { name: 'Serpent', icon: 'waves', hp: 50, mp: 25, atk: 10, mag: 15, color: 'bg-teal-600', physRes: 0, magRes: 0.15, desc: 'Resistant to magic' }
+            ],
+            boss: { name: 'Dark Lord', icon: 'crown', hp: 200, mp: 100, atk: 25, mag: 30, color: 'bg-red-700', physRes: 0.20, magRes: 0.20, desc: 'Resistant to all damage' }
+        };
+
+        class RPGGame {
+            constructor() {
+                this.round = 1;
+                this.wins = 0;
+                this.isPlayerTurn = true;
+                this.gameActive = true;
+                this.defending = false;
+                
+                this.player = {
+                    hp: CONFIG.playerStartHP,
+                    maxHp: CONFIG.playerStartHP,
+                    mp: CONFIG.playerStartMP,
+                    maxMp: CONFIG.playerStartMP,
+                    atk: 20,
+                    mag: 35,
+                    level: 1,
+                    xp: 0,
+                    xpToNext: 2
+                };
+                
+                this.enemy = null;
+                this.spawnEnemy();
+                this.updateUI();
+                lucide.createIcons();
+            }
+
+            spawnEnemy() {
+                const isBoss = this.round % CONFIG.bossRound === 0 && this.round > 0;
+                
+                if (isBoss) {
+                    this.enemy = { ...ENEMIES.boss, maxHp: ENEMIES.boss.hp, maxMp: ENEMIES.boss.mp };
+                    this.log(`⚠️ BOSS APPEARS! ${this.enemy.name} has entered the arena!`, 'text-red-400 font-bold');
+                } else {
+                    const template = ENEMIES.normal[Math.floor(Math.random() * ENEMIES.normal.length)];
+                    // Scale enemy stats based on round
+                    const scale = 1 + (this.round * 0.1);
+                    this.enemy = {
+                        ...template,
+                        hp: Math.floor(template.hp * scale),
+                        maxHp: Math.floor(template.hp * scale),
+                        mp: Math.floor(template.mp * scale),
+                        maxMp: Math.floor(template.mp * scale),
+                        atk: Math.floor(template.atk * scale),
+                        mag: Math.floor(template.mag * scale)
+                    };
+                    this.log(`A wild ${this.enemy.name} appears!`, 'text-indigo-300');
+                }
+                
+                this.updateUI();
+                this.updateEnemyVisuals(isBoss);
+            }
+
+            updateEnemyVisuals(isBoss) {
+                const iconDiv = document.getElementById('enemy-icon');
+                const badge = document.getElementById('boss-badge');
+                const typeText = document.getElementById('enemy-type');
+                
+                // Update icon
+                iconDiv.className = `w-16 h-16 ${this.enemy.color} rounded-full flex items-center justify-center enemy-float`;
+                iconDiv.innerHTML = `<i data-lucide="${this.enemy.icon}" class="w-8 h-8"></i>`;
+                
+                if (isBoss) {
+                    iconDiv.classList.add('boss-aura');
+                    badge.classList.remove('hidden');
+                    typeText.textContent = this.enemy.desc || 'BOSS ENEMY';
+                    typeText.className = 'text-red-400 font-bold animate-pulse';
+                } else {
+                    iconDiv.classList.remove('boss-aura');
+                    badge.classList.add('hidden');
+                    typeText.textContent = this.enemy.desc || 'Normal Enemy';
+                    typeText.className = 'text-red-300 text-sm';
+                }
+                
+                lucide.createIcons();
+            }
+
+            playerAction(action) {
+                if (!this.gameActive || !this.isPlayerTurn) return;
+                
+                this.defending = false;
+                let damage = 0;
+                let message = '';
+                let isMagic = false;
+                
+                switch(action) {
+                    case 'attack':
+                        damage = Math.floor(this.player.atk * (0.8 + Math.random() * 0.4));
+                        // Apply physical resistance
+                        if (this.enemy.physRes) {
+                            const reduction = Math.floor(damage * this.enemy.physRes);
+                            damage -= reduction;
+                            if (this.enemy.physRes > 0) {
+                                message = `You attack! ${this.enemy.name} resists! ${damage} damage!`;
+                            } else if (this.enemy.physRes < 0) {
+                                message = `You attack! ${this.enemy.name} is weak! ${damage} damage!`;
+                            } else {
+                                message = `You attack for ${damage} damage!`;
+                            }
+                        } else {
+                            message = `You attack for ${damage} damage!`;
+                        }
+                        // Restore 5% MP on attack
+                        const attackMpRestore = Math.floor(this.player.maxMp * 0.05);
+                        this.player.mp = Math.min(this.player.maxMp, this.player.mp + attackMpRestore);
+                        message += ` (+${attackMpRestore} MP)`;
+                        this.animatePlayer('attack-anim');
+                        this.dealDamageToEnemy(damage, false);
+                        break;
+                        
+                    case 'magic':
+                        if (this.player.mp < CONFIG.magicCost) {
+                            this.log('Not enough MP!', 'text-red-400');
+                            return;
+                        }
+                        this.player.mp -= CONFIG.magicCost;
+                        isMagic = true;
+                        damage = Math.floor(this.player.mag * (0.9 + Math.random() * 0.4));
+                        // Apply magic resistance
+                        if (this.enemy.magRes) {
+                            const reduction = Math.floor(damage * this.enemy.magRes);
+                            damage -= reduction;
+                            if (this.enemy.magRes > 0) {
+                                message = `You cast Magic! ${this.enemy.name} resists! ${damage} damage!`;
+                            } else if (this.enemy.magRes < 0) {
+                                message = `You cast Magic! ${this.enemy.name} is weak! ${damage} damage!`;
+                            } else {
+                                message = `You cast Magic for ${damage} damage!`;
+                            }
+                        } else {
+                            message = `You cast Magic for ${damage} damage!`;
+                        }
+                        this.animatePlayer('magic-anim');
+                        this.dealDamageToEnemy(damage, true);
+                        break;
+                        
+                    case 'heal':
+                        if (this.player.mp < CONFIG.healCost) {
+                            this.log('Not enough MP!', 'text-red-400');
+                            return;
+                        }
+                        this.player.mp -= CONFIG.healCost;
+                        const healAmount = Math.min(CONFIG.healAmount, this.player.maxHp - this.player.hp);
+                        this.player.hp += healAmount;
+                        message = `You heal for ${healAmount} HP!`;
+                        this.showDamageNumber(healAmount, 'player', 'text-green-400');
+                        document.querySelector('.pulse-glow').classList.add('heal-effect');
+                        setTimeout(() => document.querySelector('.pulse-glow').classList.remove('heal-effect'), 600);
+                        break;
+                        
+                    case 'defend':
+                        this.defending = true;
+                        const defendMpRestore = Math.floor(this.player.maxMp * 0.15);
+                        this.player.mp = Math.min(this.player.maxMp, this.player.mp + defendMpRestore);
+                        message = `You defend! Restored ${defendMpRestore} MP!`;
+                        break;
+                }
+                
+                this.log(message);
+                this.updateUI();
+                
+                if (this.enemy.hp <= 0) {
+                    this.winBattle();
+                } else {
+                    this.isPlayerTurn = false;
+                    document.getElementById('action-buttons').classList.add('opacity-50', 'pointer-events-none');
+                    setTimeout(() => this.enemyTurn(), 1000);
+                }
+            }
+
+            enemyTurn() {
+                if (!this.gameActive) return;
+                
+                const useMagic = Math.random() > 0.7 && this.enemy.mp >= 10;
+                let damage = 0;
+                let message = '';
+                
+                if (useMagic) {
+                    this.enemy.mp -= 10;
+                    damage = Math.floor(this.enemy.mag * (0.8 + Math.random() * 0.4));
+                    message = `${this.enemy.name} casts spell for ${damage} damage!`;
+                    this.shakeElement(document.querySelector('.pulse-glow').parentElement.parentElement);
+                } else {
+                    damage = Math.floor(this.enemy.atk * (0.8 + Math.random() * 0.4));
+                    if (this.defending) {
+                        damage = Math.floor(damage * 0.5);
+                        message = `${this.enemy.name} attacks! You defend and take only ${damage} damage!`;
+                    } else {
+                        message = `${this.enemy.name} attacks for ${damage} damage!`;
+                    }
+                    this.shakeElement(document.querySelector('.pulse-glow').parentElement.parentElement);
+                }
+                
+                this.player.hp = Math.max(0, this.player.hp - damage);
+                this.showDamageNumber(damage, 'player', 'text-red-500');
+                this.log(message, 'text-red-300');
+                this.updateUI();
+                
+                if (this.player.hp <= 0) {
+                    this.gameOver();
+                } else {
+                    this.isPlayerTurn = true;
+                    document.getElementById('action-buttons').classList.remove('opacity-50', 'pointer-events-none');
+                }
+            }
+
+            dealDamageToEnemy(damage, isMagic = false) {
+                this.enemy.hp = Math.max(0, this.enemy.hp - damage);
+                this.showDamageNumber(damage, 'enemy', isMagic ? 'text-blue-400' : 'text-white');
+                this.shakeElement(document.getElementById('enemy-icon'));
+            }
+
+            showDamageNumber(amount, target, colorClass) {
+                const display = document.getElementById('damage-display');
+                const num = document.createElement('div');
+                num.className = `text-3xl font-black damage-pop ${colorClass}`;
+                num.textContent = amount;
+                num.style.position = 'absolute';
+                num.style.left = target === 'player' ? '25%' : '75%';
+                display.appendChild(num);
+                setTimeout(() => num.remove(), 1000);
+            }
+
+            shakeElement(element) {
+                element.classList.add('shake');
+                setTimeout(() => element.classList.remove('shake'), 500);
+            }
+
+            animatePlayer(animClass) {
+                const playerIcon = document.querySelector('.pulse-glow');
+                playerIcon.classList.add(animClass);
+                setTimeout(() => playerIcon.classList.remove(animClass), 500);
+            }
+
+            winBattle() {
+                this.wins++;
+                
+                // Gain XP
+                this.player.xp++;
+                this.log(`Gained 1 XP! (${this.player.xp}/${this.player.xpToNext})`, 'text-yellow-400');
+                
+                // Check for level up
+                if (this.player.xp >= this.player.xpToNext) {
+                    this.levelUp();
+                }
+                
+                const isBoss = this.round % CONFIG.bossRound === 0;
+                
+                if (isBoss) {
+                    this.victory();
+                    return;
+                }
+                
+                // Restore 30% HP and MP
+                const hpRestore = Math.floor(this.player.maxHp * CONFIG.restorePercent);
+                const mpRestore = Math.floor(this.player.maxMp * CONFIG.restorePercent);
+                
+                this.player.hp = Math.min(this.player.maxHp, this.player.hp + hpRestore);
+                this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRestore);
+                
+                this.log(`Victory! Restored ${hpRestore} HP and ${mpRestore} MP!`, 'text-green-400 font-bold');
+                
+                setTimeout(() => {
+                    this.round++;
+                    this.spawnEnemy();
+                    this.isPlayerTurn = true;
+                }, 1500);
+            }
+
+            levelUp() {
+                this.player.level++;
+                this.player.xp = 0;
+                this.player.xpToNext = 2; // Always need 2 kills per level
+                
+                // Store old values
+                const oldMaxHp = this.player.maxHp;
+                const oldMaxMp = this.player.maxMp;
+                const oldAtk = this.player.atk;
+                const oldMag = this.player.mag;
+                
+                // Calculate current percentages before increasing max
+                const hpPercent = this.player.hp / this.player.maxHp;
+                const mpPercent = this.player.mp / this.player.maxMp;
+                
+                // Base increase: +1 to all stats
+                this.player.maxHp += 1;
+                this.player.maxMp += 1;
+                this.player.atk += 1;
+                this.player.mag += 1;
+                
+                // Bonus points tracking
+                const bonusStats = { hp: 0, mp: 0, atk: 0, mag: 0 };
+                
+                // Distribute 4 random bonus points
+                const statKeys = ['hp', 'mp', 'atk', 'mag'];
+                for (let i = 0; i < 4; i++) {
+                    const randomStat = statKeys[Math.floor(Math.random() * statKeys.length)];
+                    bonusStats[randomStat]++;
+                    
+                    switch(randomStat) {
+                        case 'hp': this.player.maxHp += 1; break;
+                        case 'mp': this.player.maxMp += 1; break;
+                        case 'atk': this.player.atk += 1; break;
+                        case 'mag': this.player.mag += 1; break;
+                    }
+                }
+                
+                // Maintain HP and MP percentages (don't full restore)
+                this.player.hp = Math.floor(this.player.maxHp * hpPercent);
+                this.player.mp = Math.floor(this.player.maxMp * mpPercent);
+                
+                // Build bonus message
+                const bonusParts = [];
+                if (bonusStats.hp > 0) bonusParts.push(`+${bonusStats.hp} HP`);
+                if (bonusStats.mp > 0) bonusParts.push(`+${bonusStats.mp} MP`);
+                if (bonusStats.atk > 0) bonusParts.push(`+${bonusStats.atk} ATK`);
+                if (bonusStats.mag > 0) bonusParts.push(`+${bonusStats.mag} MAG`);
+                
+                this.log(`🎉 LEVEL UP! You are now level ${this.player.level}!`, 'text-yellow-400 font-bold text-lg');
+                this.log(`Base: +1 all | Bonus: ${bonusParts.join(', ')}`, 'text-green-400 font-semibold');
+                this.log(`HP: ${oldMaxHp}→${this.player.maxHp} MP: ${oldMaxMp}→${this.player.maxMp} ATK: ${oldAtk}→${this.player.atk} MAG: ${oldMag}→${this.player.mag}`, 'text-gray-300 text-xs');
+            }
+
+            victory() {
+                this.gameActive = false;
+                document.getElementById('victory-round').textContent = this.round;
+                document.getElementById('victory-score').textContent = this.wins;
+                document.getElementById('victory-modal').classList.remove('hidden');
+            }
+
+            gameOver() {
+                this.gameActive = false;
+                document.getElementById('final-round').textContent = this.round;
+                document.getElementById('final-score').textContent = this.wins;
+                document.getElementById('game-over-modal').classList.remove('hidden');
+            }
+
+            restart() {
+                document.getElementById('game-over-modal').classList.add('hidden');
+                document.getElementById('victory-modal').classList.add('hidden');
+                document.getElementById('combat-log').innerHTML = '';
+                document.getElementById('action-buttons').classList.remove('opacity-50', 'pointer-events-none');
+                new RPGGame();
+            }
+
+            log(message, classes = '') {
+                const log = document.getElementById('combat-log');
+                const entry = document.createElement('div');
+                entry.className = `mb-1 ${classes}`;
+                entry.textContent = `> ${message}`;
+                log.appendChild(entry);
+                log.scrollTop = log.scrollHeight;
+            }
+
+            updateUI() {
+                // Update round and wins
+                document.getElementById('round-display').textContent = this.round;
+                document.getElementById('wins-display').textContent = this.wins;
+                
+                // Update player stats
+                document.getElementById('player-hp').textContent = this.player.hp;
+                document.getElementById('player-max-hp').textContent = this.player.maxHp;
+                document.getElementById('player-mp').textContent = this.player.mp;
+                document.getElementById('player-max-mp').textContent = this.player.maxMp;
+                document.getElementById('player-level').textContent = this.player.level;
+                document.getElementById('player-xp').textContent = this.player.xp;
+                document.getElementById('player-xp-next').textContent = this.player.xpToNext;
+                
+                document.getElementById('player-hp-bar').style.width = `${(this.player.hp / this.player.maxHp) * 100}%`;
+                document.getElementById('player-mp-bar').style.width = `${(this.player.mp / this.player.maxMp) * 100}%`;
+                document.getElementById('player-xp-bar').style.width = `${(this.player.xp / this.player.xpToNext) * 100}%`;
+                
+                // Update enemy stats
+                if (this.enemy) {
+                    document.getElementById('enemy-name').textContent = this.enemy.name;
+                    document.getElementById('enemy-hp').textContent = this.enemy.hp;
+                    document.getElementById('enemy-max-hp').textContent = this.enemy.maxHp;
+                    document.getElementById('enemy-mp').textContent = this.enemy.mp;
+                    document.getElementById('enemy-max-mp').textContent = this.enemy.maxMp;
+                    
+                    document.getElementById('enemy-hp-bar').style.width = `${(this.enemy.hp / this.enemy.maxHp) * 100}%`;
+                    document.getElementById('enemy-mp-bar').style.width = `${(this.enemy.mp / this.enemy.maxMp) * 100}%`;
+                }
+            }
+        }
+
+        // Initialize game
+        let game;
+        window.onload = () => {
+            game = new RPGGame();
+        };
+    </script>
+</body>
+</html>
